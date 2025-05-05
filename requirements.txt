@@ -1,2 +1,6 @@
 nltk
+<<<<<<< HEAD
 pytest 
+=======
+pytest 
+>>>>>>> 0d940beb826d994ff69166072cbbb1d180beedbf
