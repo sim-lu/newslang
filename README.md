@@ -1,6 +1,6 @@
 # Newslang Word Generator
 
-A simple Python tool to generate new, potentially playful words based on keywords.
+A simple Python tool to generate new slang words based on user keywords.
 
 ## Overview
 
