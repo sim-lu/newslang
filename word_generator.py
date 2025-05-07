@@ -91,10 +91,18 @@ def get_related_words(keywords: list[str], max_related: int = 20) -> list[str]:
     random.shuffle(word_list) # Shuffle before slicing for variety
     return word_list[:max_related]
 
+def find_longest_overlap(s1, s2):
+    """Finds the longest overlapping substring between end of s1 and start of s2."""
+    max_overlap = ""
+    for k in range(min(len(s1), len(s2)), 0, -1):
+        if s1.endswith(s2[:k]):
+            return s2[:k]
+    return ""
+
 def blend_words(word1: str, word2: str) -> list[str]:
     """
     Attempts to blend two words into potential portmanteaus.
-    Generates a few simple blends (start(w1)+end(w2), start(w2)+end(w1)).
+    Tries simple start/end concatenation and overlap blending.
 
     Args:
         word1: The first word.
@@ -107,7 +115,19 @@ def blend_words(word1: str, word2: str) -> list[str]:
     word2 = word2.lower()
     blends = set()
 
-    # Simple blends: Take roughly half of each word
+    # --- Strategy 1: Overlap Blending --- #
+    overlap12 = find_longest_overlap(word1, word2)
+    overlap21 = find_longest_overlap(word2, word1)
+
+    # Blend based on overlap from word1 to word2
+    if len(overlap12) >= 2: # Require a reasonable overlap
+        blends.add(word1 + word2[len(overlap12):])
+
+    # Blend based on overlap from word2 to word1
+    if len(overlap21) >= 2:
+        blends.add(word2 + word1[len(overlap21):])
+
+    # --- Strategy 2: Simple Half/Half Blending (Fallback/Additional) --- #
     len1 = len(word1)
     len2 = len(word2)
 
@@ -123,10 +143,14 @@ def blend_words(word1: str, word2: str) -> list[str]:
         blends.add(word2[:split2] + word1[split1:])
 
     # TODO: Add more sophisticated blending (e.g., find vowel overlaps)?
+    # Remove blends that are just one of the original words (can happen with full overlap)
+    blends.discard(word1)
+    blends.discard(word2)
 
     # Basic filtering of results
-    valid_blends = [b for b in blends if len(b) > 3 and b != word1 and b != word2]
-    return valid_blends
+    valid_blends = [b for b in blends if len(b) > 3]
+    # Return unique blends
+    return list(set(valid_blends))
 
 # --- Affixation --- #
 
@@ -135,7 +159,7 @@ COMMON_SUFFIXES = ["ing", "ed", "er", "est", "ly", "able", "ible", "ness", "ment
 
 # Playful additions (can be prefixes or suffixes)
 PLAYFUL_AFFIXES = [
-    "mega", "uber", "hyper", # Prefixes
+    "mega", "uber", "hyper", "giga" # Prefixes
     "-tastic", "-erific", "-inator", "-izzle", "-core", "-wave", "-punk", "-ish", "-y", # Suffixes (handle hyphen)
     "-o-rama", "-apalooza" # Longer suffixes
 ]
