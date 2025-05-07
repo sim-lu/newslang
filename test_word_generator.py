@@ -1,5 +1,5 @@
 import pytest
-from word_generator import get_related_words, download_nltk_data, blend_words, add_affixes, COMMON_PREFIXES, COMMON_SUFFIXES
+from word_generator import get_related_words, download_nltk_data, blend_words, add_affixes, COMMON_PREFIXES, COMMON_SUFFIXES, PLAYFUL_AFFIXES
 import random
 from word_generator import modify_word_phonetically
 from word_generator import VOWELS, CONSONANTS
@@ -116,22 +116,31 @@ def test_blend_words_very_short():
 
 def test_add_affixes_basic():
     """Test adding affixes to a standard word."""
-    # Seed random again for this specific test if needed, or rely on module-level seed
-    random.seed(43) # Use a different seed or same if behavior expected
+    random.seed(43)
     word = "develop"
     affixed = add_affixes(word)
     print(f"Affixed for '{word}': {affixed}")
     assert isinstance(affixed, list)
-    assert len(affixed) >= 0 and len(affixed) <= 2 # Max one prefix, one suffix
+    assert len(affixed) >= 0 and len(affixed) <= 2
+    found_common = False
+    found_playful = False
     for w in affixed:
         assert isinstance(w, str)
         assert w != word
         assert len(w) > 3
         assert w.islower()
-        # Check if it actually starts with a known prefix or ends with a known suffix
-        has_prefix = any(w.startswith(p) for p in COMMON_PREFIXES)
-        has_suffix = any(w.endswith(s) for s in COMMON_SUFFIXES)
-        assert has_prefix or has_suffix
+        # Check if it actually starts/ends with a known affix
+        has_common_prefix = any(w.startswith(p) for p in COMMON_PREFIXES)
+        has_common_suffix = any(w.endswith(s) for s in COMMON_SUFFIXES)
+        has_playful_prefix = any(w.startswith(p) for p in PLAYFUL_AFFIXES if not p.startswith('-'))
+        has_playful_suffix = any(w.endswith(s.lstrip('-')) for s in PLAYFUL_AFFIXES if s.startswith('-'))
+        assert has_common_prefix or has_common_suffix or has_playful_prefix or has_playful_suffix
+        if has_common_prefix or has_common_suffix:
+            found_common = True
+        if has_playful_prefix or has_playful_suffix:
+            found_playful = True
+    # Cannot guarantee both are found due to probability, but check list type
+    assert isinstance(affixed, list)
 
 def test_add_affixes_drop_e():
     """Test suffix addition that should drop 'e'."""
@@ -191,6 +200,37 @@ def test_add_affixes_short_word():
     assert isinstance(affixed, list)
     # Expect empty list because "do" is too short for prefix (len > 2) or suffix (len > 3) rules
     assert len(affixed) == 0
+
+# --- Clipping Tests --- #
+from word_generator import clip_word
+
+def test_clip_word_basic():
+    """Test basic clipping."""
+    random.seed(52) # New seed
+    word = "information"
+    clipped_list = clip_word(word)
+    print(f"Clipped '{word}': {clipped_list}")
+    assert isinstance(clipped_list, list)
+    assert len(clipped_list) == 1
+    clipped = clipped_list[0]
+    assert clipped == "info" or clipped == "inf"
+    assert clipped != word
+
+def test_clip_word_short():
+    """Test clipping words that are too short."""
+    word = "test"
+    clipped_list = clip_word(word)
+    print(f"Clipped '{word}': {clipped_list}")
+    assert isinstance(clipped_list, list)
+    assert len(clipped_list) == 0
+
+def test_clip_word_already_short():
+    """Test clipping a word that clipping wouldn't change."""
+    word = "info"
+    clipped_list = clip_word(word)
+    print(f"Clipped '{word}': {clipped_list}")
+    assert isinstance(clipped_list, list)
+    assert len(clipped_list) == 0 # Should not return the same word
 
 # --- Phonetic Modification Tests --- #
 
@@ -253,7 +293,7 @@ def test_generate_new_words_basic():
         assert isinstance(word, str)
         assert word not in cleaned_keywords
         assert word not in related_set # Ensure generated words are distinct
-        assert len(word) > 3
+        assert len(word) >= 3 # Changed from > 3 to >= 3 to allow clipped words
 
 def test_generate_new_words_no_related():
     """Test generation when keywords yield no related words."""

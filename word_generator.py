@@ -133,43 +133,103 @@ def blend_words(word1: str, word2: str) -> list[str]:
 COMMON_PREFIXES = ["re", "un", "in", "im", "pre", "post", "mis", "dis", "pro", "anti", "non"]
 COMMON_SUFFIXES = ["ing", "ed", "er", "est", "ly", "able", "ible", "ness", "ment", "tion", "sion", "ify", "ize"]
 
-def add_affixes(word: str) -> list[str]:
+# Playful additions (can be prefixes or suffixes)
+PLAYFUL_AFFIXES = [
+    "mega", "uber", "hyper", # Prefixes
+    "-tastic", "-erific", "-inator", "-izzle", "-core", "-wave", "-punk", "-ish", "-y", # Suffixes (handle hyphen)
+    "-o-rama", "-apalooza" # Longer suffixes
+]
+
+def add_affixes(word: str, playful_prob: float = 0.3) -> list[str]:
     """
-    Adds common prefixes or suffixes to a word.
+    Adds common or playful prefixes or suffixes to a word.
 
     Args:
         word: The base word.
+        playful_prob: Probability of choosing a playful affix over a common one.
 
     Returns:
         A list of new words with affixes added.
     """
     word = word.lower()
     affixed_words = set()
+    added_prefix = False
+    added_suffix = False
 
-    # Add prefix
-    if len(word) > 2: # Don't add prefixes to very short words
-        prefix = random.choice(COMMON_PREFIXES)
-        # Avoid double prefixes if the word already starts with one (simple check)
-        if not any(word.startswith(p) for p in COMMON_PREFIXES):
+    # --- Try adding Prefix --- #
+    if len(word) > 2 and not any(word.startswith(p) for p in COMMON_PREFIXES + [pa for pa in PLAYFUL_AFFIXES if not pa.startswith('-')]) :
+        use_playful = random.random() < playful_prob
+        if use_playful:
+            # Filter for playful prefixes
+            playful_prefixes = [p for p in PLAYFUL_AFFIXES if not p.startswith('-')]
+            if playful_prefixes:
+                prefix = random.choice(playful_prefixes)
+                affixed_words.add(prefix + word)
+                added_prefix = True
+        # If not using playful or no playful prefixes available, try common
+        if not added_prefix:
+            prefix = random.choice(COMMON_PREFIXES)
             affixed_words.add(prefix + word)
+            added_prefix = True
 
-    # Add suffix
-    if len(word) > 3: # Don't add suffixes to very short words
-        suffix = random.choice(COMMON_SUFFIXES)
-        # Avoid double suffixes if the word already ends with one (simple check)
-        if not any(word.endswith(s) for s in COMMON_SUFFIXES):
-            # Handle simple cases like dropping 'e' before "ing"/"ed"/"able"/"ible"/"er"/"est"]
-            if word.endswith('e') and suffix in ["ing", "ed", "able", "ible", "er", "est"]:
-                affixed_words.add(word[:-1] + suffix)
-            # Handle simple cases like doubling consonant (e.g., run -> running) - VERY basic check
-            elif len(word) > 1 and word[-1] in CONSONANTS and word[-2] in VOWELS and suffix in ["ing", "ed", "er", "est"] and word[-1] not in 'wx':
-                 affixed_words.add(word + word[-1] + suffix)
+    # --- Try adding Suffix --- #
+    if len(word) > 3 and not any(word.endswith(s) for s in COMMON_SUFFIXES + [pa.strip('-') for pa in PLAYFUL_AFFIXES if pa.startswith('-')]) :
+        use_playful = random.random() < playful_prob
+        suffix_candidate = None
+        if use_playful:
+            playful_suffixes = [s for s in PLAYFUL_AFFIXES if s.startswith('-')]
+            if playful_suffixes:
+                 suffix_candidate = random.choice(playful_suffixes).lstrip('-') # Remove leading hyphen
+                 added_suffix = True # Tentatively mark as added
+
+        # If not using playful or no playful suffixes available, try common
+        if not added_suffix:
+            suffix_candidate = random.choice(COMMON_SUFFIXES)
+            added_suffix = True # Tentatively mark as added
+
+        if added_suffix and suffix_candidate:
+            # Apply suffix rules (simplified)
+            if word.endswith('e') and suffix_candidate in ["ing", "ed", "able", "ible", "er", "est", "ish", "y", "ize"]:
+                 affixed_words.add(word[:-1] + suffix_candidate)
+            elif len(word) > 1 and word[-1] in CONSONANTS and word[-2] in VOWELS and suffix_candidate in ["ing", "ed", "er", "est"] and word[-1] not in 'wx':
+                 affixed_words.add(word + word[-1] + suffix_candidate)
             else:
-                affixed_words.add(word + suffix)
+                 affixed_words.add(word + suffix_candidate)
 
     # Filter out originals and ensure reasonable length
-    valid_affixed = [w for w in affixed_words if w != word and 3 < len(w) < 20] # Avoid overly long words
+    valid_affixed = [w for w in affixed_words if w != word and 3 < len(w) < 25] # Allow slightly longer playful words
     return valid_affixed
+
+# --- Clipping --- #
+
+def clip_word(word: str) -> list[str]:
+    """
+    Clips a word, keeping the beginning.
+    Mimics slang like 'middle' -> 'mid'.
+
+    Args:
+        word: The word to clip.
+
+    Returns:
+        A list containing the clipped word, or empty list if too short.
+    """
+    word = word.lower()
+    if len(word) <= 4: # Don't clip very short words
+        return []
+
+    # Simple clipping: keep first 3 or 4 characters, randomly
+    clip_len = random.choice([3, 4])
+    clipped = word[:clip_len]
+
+    # Avoid returning original word if it was already short
+    if clipped == word:
+        return []
+
+    # Basic check: ensure it doesn't end in double consonants unless original did
+    if len(clipped) > 1 and clipped[-1] in CONSONANTS and clipped[-1] == clipped[-2] and (len(word) <= clip_len or word[clip_len-1] != word[clip_len-2]):
+         return []
+
+    return [clipped]
 
 # --- Phonetic Modification --- #
 
@@ -250,7 +310,7 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
 
     while len(generated_words) < num_to_generate and attempts < max_attempts:
         attempts += 1
-        strategy = random.choice(['blend', 'affix', 'modify'])
+        strategy = random.choice(['blend', 'affix', 'modify', 'clip'])
 
         try:
             if strategy == 'blend' and len(related_words) >= 2:
@@ -262,6 +322,9 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
             elif strategy == 'modify' and related_words:
                 base_word = random.choice(related_words)
                 new_candidates = modify_word_phonetically(base_word)
+            elif strategy == 'clip' and related_words:
+                base_word = random.choice(related_words)
+                new_candidates = clip_word(base_word)
             else:
                 new_candidates = []
 
