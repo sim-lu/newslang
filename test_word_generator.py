@@ -1,6 +1,6 @@
 import pytest
 from word_generator import (
-    get_related_words, download_nltk_data, blend_words, add_affixes, clip_word, modify_word_phonetically, generate_new_words, VOWELS, CONSONANTS, COMMON_PREFIXES, COMMON_SUFFIXES, PLAYFUL_AFFIXES, reduplicate_word
+    get_related_words, download_nltk_data, blend_words, add_affixes, clip_word, modify_word_phonetically, generate_new_words, VOWELS, CONSONANTS, COMMON_PREFIXES, COMMON_SUFFIXES, PLAYFUL_AFFIXES, reduplicate_word, phonetic_respell
 )
 import random
 
@@ -437,3 +437,53 @@ def test_reduplicate_word():
 
     # Check empty result if segment is too short or not found and word is short
     assert reduplicate_word("gym") == [] # No vowel by VOWELS="aeiou", word too short for fallback [-2:]
+
+# --- Phonetic Respelling Tests --- #
+
+def test_phonetic_respell_ing_to_in_apostrophe():
+    """Test -ing -> -in' rule."""
+    assert phonetic_respell("running") == ["runnin'"]
+    assert phonetic_respell("talking") == ["talkin'"]
+    assert phonetic_respell("sing") == ["sin'"] # len("sing") is 4, which is > 3.
+    assert phonetic_respell("king") == ["kin'"]
+    assert phonetic_respell("english") == [] # No change as -ing is not at end.
+    assert phonetic_respell("ping") == ["pin'"]
+
+def test_phonetic_respell_cool_to_kewl():
+    """Test cool -> kewl rule."""
+    assert phonetic_respell("cool") == ["kewl"]
+    assert phonetic_respell("itscool") == ["itskewl"]
+    assert phonetic_respell("cooperate") == [] # No "cool" substring
+    assert phonetic_respell("uncool") == ["unkewl"]
+    assert phonetic_respell("coolcool") == ["kewlcool"] # Only first "cool"
+
+def test_phonetic_respell_you_to_u():
+    """Test you -> u rule."""
+    assert phonetic_respell("you") == ["u"]
+    assert phonetic_respell("your") == ["ur"]
+    assert phonetic_respell("thankyou") == ["thanku"]
+    assert phonetic_respell("yourselves") == ["urselves"]
+    assert phonetic_respell("youth") == ["uth"]
+    assert phonetic_respell("young") == ["ung"] # "you" is a substring, gets replaced
+    assert phonetic_respell("youyou") == ["uyou"] # Only first "you"
+
+def test_phonetic_respell_no_change():
+    """Test words that should not be changed by any rule."""
+    assert phonetic_respell("test") == []
+    assert phonetic_respell("example") == []
+    assert phonetic_respell("aeiou") == []
+
+def test_phonetic_respell_multiple_rules_possible_random_choice():
+    """Test that if multiple rules could apply, one is chosen."""
+    # Example: "coolingyou" could become "coolingu" or "kewlingyou"
+    # Current logic: each rule applied to original, one valid result chosen randomly.
+    random.seed(42) # for reproducible choice if multiple valid an
+    word = "coolingyou"
+    # Rule 1 (-ing): "coolin'you"
+    # Rule 2 (cool): "kewlingyou"
+    # Rule 3 (you): "coolingu"
+    # All three are valid different words.
+    results = phonetic_respell(word)
+    assert len(results) == 1
+    assert results[0] in ["coolin'you", "kewlingyou", "coolingu"]
+    random.seed(None)

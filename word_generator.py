@@ -315,6 +315,63 @@ def reduplicate_word(word: str) -> list[str]:
 
     return [new_word]
 
+# --- Phonetic Respelling --- #
+
+def phonetic_respell(word: str) -> list[str]:
+    """
+    Applies common phonetic respellings to a word.
+    e.g., "running" -> "runnin'"
+
+    Args:
+        word: The word to respell.
+
+    Returns:
+        A list containing the respelled word if a change was made, otherwise an empty list.
+    """
+    word_lower = word.lower()
+    original_word = word_lower # Keep a copy for comparison
+    respelled_variations = set()
+
+    # Rule 1: -ing -> -in'
+    # Apply rules sequentially. word_modified will hold the current state.
+    word_modified = word_lower
+    changed_by_rule = False
+
+    if word_modified.endswith("ing") and len(word_modified) > 3:
+        word_modified = word_modified[:-3] + "in'"
+        changed_by_rule = True
+
+    # Rule 2: Specific substitutions
+    # These apply to the potentially already modified word.
+    # We should be careful if a word can be modified by multiple rules to avoid chaos.
+    # For now, let's assume only one major respelling rule applies or the first one wins.
+    # Let's re-think: apply rules to original_word and collect variations.
+
+    # --- Attempt 2: Apply rules to original and collect distinct variations --- # 
+    potential_respellings = set() # Store results of rules
+
+    # Rule 1: -ing -> -in' (applied to original word)
+    if original_word.endswith("ing") and len(original_word) > 3:
+        potential_respellings.add(original_word[:-3] + "in'")
+
+    # Rule 2: "cool" -> "kewl" (substring replacement on original)
+    if "cool" in original_word:
+        potential_respellings.add(original_word.replace("cool", "kewl", 1)) # Replace only first for now
+
+    # Rule 3: "you" -> "u" (substring replacement on original)
+    # This is broad. Consider if it should only apply if word IS "you".
+    # For now, simple replacement of first instance.
+    if "you" in original_word:
+        potential_respellings.add(original_word.replace("you", "u", 1))
+
+    # Filter out unchanged words and select one if changes were made
+    valid_new_words = [v for v in potential_respellings if v != original_word and v]
+
+    if not valid_new_words:
+        return []
+    
+    return [random.choice(valid_new_words)] # Return one random valid respelling
+
 # --- Phonetic Modification --- #
 
 def modify_word_phonetically(word: str) -> list[str]:
@@ -396,7 +453,7 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
 
     while len(generated_words) < num_to_generate and attempts < max_attempts:
         attempts += 1
-        strategy = random.choice(['blend', 'affix', 'modify', 'clip', 'reduplicate'])
+        strategy = random.choice(['blend', 'affix', 'modify', 'clip', 'reduplicate', 'respell'])
 
         base_word = None
         if not available_related_words:
@@ -412,7 +469,7 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
                     new_candidates = blend_words(w1, w2)
                 else:
                     new_candidates = [] # Not enough words to blend
-            elif strategy in ['affix', 'modify', 'clip', 'reduplicate']:
+            elif strategy in ['affix', 'modify', 'clip', 'reduplicate', 'respell']:
                 if available_related_words:
                     base_word = random.choice(available_related_words)
                     if base_word in available_related_words: # Check if it's still there (it should be)
@@ -429,6 +486,8 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
                         new_candidates = clip_word(base_word)
                     elif strategy == 'reduplicate':
                         new_candidates = reduplicate_word(base_word)
+                    elif strategy == 'respell': # New strategy
+                        new_candidates = phonetic_respell(base_word)
                 else:
                     new_candidates = [] # No base words left in current available pool
             else:
