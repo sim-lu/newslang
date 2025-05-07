@@ -112,6 +112,38 @@ def test_blend_words_very_short():
     assert isinstance(blends, list)
     assert len(blends) == 0
 
+def test_blend_words_overlap():
+    """Test blending words with clear overlaps."""
+    word1 = "information"
+    word2 = "automation"
+    blends = blend_words(word1, word2)
+    print(f"Overlap Blends for '{word1}' + '{word2}': {blends}")
+    # Overlap produces originals in this case, which get filtered out.
+    # Check that originals are not present and some other blend might be.
+    assert "information" not in blends
+    assert "automation" not in blends
+
+    word3 = "brunch"
+    word4 = "lunch"
+    blends2 = blend_words(word3, word4)
+    print(f"Overlap Blends for '{word3}' + '{word4}': {blends2}")
+    # For "brunch" and "lunch", with random.seed(42):
+    # Current overlap logic (find_longest_overlap) finds no overlaps of length >= 2.
+    # Blends are from the simple half/half blending strategy.
+    # Expected results: ['brnch', 'lununch'] (order may vary, so check membership)
+    assert "brunch" not in blends2 # Ensure original was filtered if generated
+    assert "lunch" not in blends2  # Ensure other original is also not present
+    assert "brnch" in blends2     # Check for one expected blend
+    assert "lununch" in blends2   # Check for the other expected blend
+    assert len(blends2) == 2      # Ensure only these two are present
+
+    word5 = "smog"
+    word6 = "fog"
+    blends3 = blend_words(word5, word6)
+    print(f"Overlap Blends for '{word5}' + '{word6}': {blends3}")
+    # Overlap logic: smog + fog[2:] = smog. This should be filtered out.
+    assert "smog" not in blends3
+
 # --- Affixation Tests --- #
 
 def test_add_affixes_basic():
