@@ -233,6 +233,40 @@ def test_add_affixes_short_word():
     # Expect empty list because "do" is too short for prefix (len > 2) or suffix (len > 3) rules
     assert len(affixed) == 0
 
+def test_add_affixes_new_playful_suffixes():
+    """Test that new playful suffixes can be applied."""
+    word = "testword"
+    # Run multiple times to increase chance of hitting various playful suffixes
+    all_generated_playful_suffix_words = set()
+    for i in range(50): # Increased attempts to catch more variety
+        # Force playful_prob to 1.0 to ensure playful affixes are attempted for suffix
+        # Need to also ensure prefix logic doesn't always add a prefix and prevent suffix addition.
+        # The current add_affixes tries prefix then suffix independently. If both are added, they are separate words in the set.
+        # So, we can just check for suffix application.
+        
+        # To test suffixes specifically, let's ensure the word is not too short for suffix and does not already end with one.
+        # The add_affixes function: if len(word) > 3 and not any(word.endswith(s) for s in COMMON_SUFFIXES + [pa.strip('-') for pa in PLAYFUL_AFFIXES if pa.startswith('-')]) :
+        
+        affixed_list = add_affixes(word + str(i), playful_prob=1.0) # Add i to word to avoid existing suffix collision on reruns
+        for w in affixed_list:
+            if not any(w.startswith(p) for p in COMMON_PREFIXES + [pa for pa in PLAYFUL_AFFIXES if not pa.startswith('-')]): # if it's not just a prefixed word
+                 all_generated_playful_suffix_words.add(w)
+
+    print(f"Generated playful suffix words for '{word}...': {list(all_generated_playful_suffix_words)[:10]}")
+
+    newly_added_suffixes = ["erino", "arino", "zilla", "meister", "licious", "tude", "scape", "omatic"]
+    found_any_new_suffix = False
+    for gen_word in all_generated_playful_suffix_words:
+        for suffix in newly_added_suffixes:
+            if gen_word.endswith(suffix) and gen_word.startswith(word): # Check if it starts with original root to confirm suffix addition
+                found_any_new_suffix = True
+                print(f"Found new suffix: {gen_word}")
+                break
+        if found_any_new_suffix:
+            break
+    
+    assert found_any_new_suffix, f"None of the new playful suffixes were found after 50 attempts. Generated: {all_generated_playful_suffix_words}"
+
 # --- Clipping Tests --- #
 
 def test_clip_word_basic():

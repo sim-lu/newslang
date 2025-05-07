@@ -159,9 +159,11 @@ COMMON_SUFFIXES = ["ing", "ed", "er", "est", "ly", "able", "ible", "ness", "ment
 
 # Playful additions (can be prefixes or suffixes)
 PLAYFUL_AFFIXES = [
-    "mega", "uber", "hyper", "giga" # Prefixes
-    "-tastic", "-erific", "-inator", "-izzle", "-core", "-wave", "-punk", "-ish", "-y", # Suffixes (handle hyphen)
-    "-o-rama", "-apalooza" # Longer suffixes
+    "mega", "uber", "hyper", "giga", # Prefixes
+    # Suffixes (handle hyphen)
+    "-tastic", "-erific", "-inator", "-izzle", "-core", "-wave", "-punk", "-ish", "-y", 
+    "-o-rama", "-apalooza", "-erino", "-arino", "-zilla", "-meister", "-licious", 
+    "-tude", "-scape", "-omatic"
 ]
 
 def add_affixes(word: str, playful_prob: float = 0.3) -> list[str]:
