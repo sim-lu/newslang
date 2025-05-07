@@ -249,11 +249,71 @@ def clip_word(word: str) -> list[str]:
     if clipped == word:
         return []
 
-    # Basic check: ensure it doesn't end in double consonants unless original did
-    if len(clipped) > 1 and clipped[-1] in CONSONANTS and clipped[-1] == clipped[-2] and (len(word) <= clip_len or word[clip_len-1] != word[clip_len-2]):
-         return []
+    # Ensure the clipped word is not just one or two characters if original was longer
+    if len(clipped) <= 2 and len(word) > 2:
+        return []
 
     return [clipped]
+
+# --- Reduplication --- #
+
+def reduplicate_word(word: str) -> list[str]:
+    """
+    Creates a new word by reduplicating the suffix of the original word.
+    e.g., "happy" -> "happyappy" (if VOWELS="aeiou"), "wonder" -> "wonderer"
+
+    Args:
+        word: The word to reduplicate.
+
+    Returns:
+        A list containing the reduplicated word, or an empty list if criteria not met.
+    """
+    word = word.lower()
+    # --- REMOVING DEBUGGING STEP FOR "cat" --- #
+    # if word == "cat":
+    #     return ["catat"]
+    # --- END DEBUGGING STEP --- #
+
+    if len(word) < 3: # Ensure this is < 3
+        return []
+
+    segment_to_reduplicate = ""
+    last_vowel_index = -1
+    # Find the last vowel in the word
+    for i in range(len(word) -1, -1, -1):
+        if word[i] in VOWELS:
+            last_vowel_index = i
+            break
+
+    if last_vowel_index != -1:
+        # If the vowel is one of the last two characters, segment is the last two characters
+        # Otherwise, segment is from the last vowel to the end of the word
+        if last_vowel_index >= len(word) - 2 :
+            segment_to_reduplicate = word[-2:]
+        else:
+            segment_to_reduplicate = word[last_vowel_index:]
+    
+    # Fallback: if no vowel found or segment is too short, try last 2 chars if word is long enough
+    if not segment_to_reduplicate or len(segment_to_reduplicate) < 2:
+        if len(word) > 4: # Ensure word is long enough for a 2-char segment
+            segment_to_reduplicate = word[-2:]
+        else:
+            return [] # Not enough to make a meaningful reduplication
+    
+    if not segment_to_reduplicate: # Still nothing?
+        return []
+
+    # Avoid nonsensical single-character reduplications or if segment is same as word
+    if len(segment_to_reduplicate) < 2 or segment_to_reduplicate == word:
+        return []
+
+    new_word = word + segment_to_reduplicate
+
+    # Prevent overly long words
+    if len(new_word) > 20:
+        return []
+
+    return [new_word]
 
 # --- Phonetic Modification --- #
 
@@ -326,6 +386,8 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
         print("Warning: No related words found for keywords. Cannot generate new words.")
         return []
 
+    available_related_words = list(related_words) # Mutable copy for selection
+
     generated_words = set()
     cleaned_keywords = {k.lower().strip() for k in keywords if k.strip()}
     related_words_set = set(related_words)
@@ -334,21 +396,41 @@ def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[s
 
     while len(generated_words) < num_to_generate and attempts < max_attempts:
         attempts += 1
-        strategy = random.choice(['blend', 'affix', 'modify', 'clip'])
+        strategy = random.choice(['blend', 'affix', 'modify', 'clip', 'reduplicate'])
+
+        base_word = None
+        if not available_related_words:
+            available_related_words = list(related_words) # Refresh if empty
+            if not available_related_words: # Still no words (shouldn't happen if initial check passed)
+                break 
 
         try:
-            if strategy == 'blend' and len(related_words) >= 2:
-                w1, w2 = random.sample(related_words, 2)
-                new_candidates = blend_words(w1, w2)
-            elif strategy == 'affix' and related_words:
-                base_word = random.choice(related_words)
-                new_candidates = add_affixes(base_word)
-            elif strategy == 'modify' and related_words:
-                base_word = random.choice(related_words)
-                new_candidates = modify_word_phonetically(base_word)
-            elif strategy == 'clip' and related_words:
-                base_word = random.choice(related_words)
-                new_candidates = clip_word(base_word)
+            if strategy == 'blend':
+                if len(available_related_words) >= 2:
+                    w1, w2 = random.sample(available_related_words, 2)
+                    # For blending, we don't necessarily remove them as they are a pair
+                    new_candidates = blend_words(w1, w2)
+                else:
+                    new_candidates = [] # Not enough words to blend
+            elif strategy in ['affix', 'modify', 'clip', 'reduplicate']:
+                if available_related_words:
+                    base_word = random.choice(available_related_words)
+                    if base_word in available_related_words: # Check if it's still there (it should be)
+                        try:
+                            available_related_words.remove(base_word) # Try to use each base word less often
+                        except ValueError: # Should not happen if logic is correct
+                            pass 
+                    
+                    if strategy == 'affix':
+                        new_candidates = add_affixes(base_word)
+                    elif strategy == 'modify':
+                        new_candidates = modify_word_phonetically(base_word)
+                    elif strategy == 'clip':
+                        new_candidates = clip_word(base_word)
+                    elif strategy == 'reduplicate':
+                        new_candidates = reduplicate_word(base_word)
+                else:
+                    new_candidates = [] # No base words left in current available pool
             else:
                 new_candidates = []
 
