@@ -5,3 +5,5 @@
     *.pyo
     *.pyd
     .DS_Store
+    nltk
+    pytest

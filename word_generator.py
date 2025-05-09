@@ -255,7 +255,7 @@ def clip_word(word: str) -> list[str]:
     if len(clipped) <= 2 and len(word) > 2:
         return []
 
-    return [clipped]
+    return [clipped] if clipped != word and len(clipped) >= 3 else []
 
 # --- Reduplication --- #
 
@@ -426,94 +426,140 @@ def modify_word_phonetically(word: str) -> list[str]:
 
     return [] # Return empty if no successful modification found after trying all indices
 
-# --- Main Generation Logic --- #
+QUIRKY_WORDS = [
+    "kerfuffle", "flummox", "hullabaloo", "bamboozle", "gobbledygook",
+    "malarkey", "wobegone", "snollygoster", "collywobbles", "nincompoop",
+    "bumfuzzle", "lollygag", "codswallop", "taradiddle", "skulduggery"
+]
 
-def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> list[str]:
+def generate_wildcard_word(user_keywords: list[str], quirky_inspiration_list: list[str]) -> str | None:
     """
-    Generates new words based on keywords using various techniques.
+    Generates a 'wildcard' word by combining a user keyword with an inspirational quirky word.
 
     Args:
-        keywords: List of keywords to seed the generation.
-        num_to_generate: The target number of new words to generate.
+        user_keywords: A list of keywords provided by the user.
+        quirky_inspiration_list: A list of quirky words to draw inspiration from.
 
     Returns:
-        A list of generated words.
+        A new wildcard word as a string, or None if generation fails.
     """
+    if not user_keywords or not quirky_inspiration_list:
+        return None
+
+    keyword = random.choice(user_keywords)
+    quirky_word = random.choice(quirky_inspiration_list)
+
+    # Attempt to blend them.
+    blended_wildcards = blend_words(keyword, quirky_word)
+    if blended_wildcards:
+        return random.choice(blended_wildcards)
+
+    # Fallback: if blending fails, try affixing part of the quirky word to the keyword
+    if len(quirky_word) > 4:
+        quirk_part = quirky_word[:random.randint(2,4)] # take a small part of the quirky word
+        if random.random() < 0.5: # prefix
+            new_word = quirk_part + keyword
+        else: # suffix
+            new_word = keyword + quirk_part
+        
+        # Basic filter for the fallback
+        if new_word != keyword and new_word != quirky_word and len(new_word) > 3:
+            return new_word
+    
+    return None
+
+# --- Main Generation Logic --- #
+
+def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> dict:
+    """
+    Generates a list of new, potentially playful words based on input keywords
+    using various strategies. Ensures one wildcard word if possible.
+    Returns a dictionary with 'regular_words' and 'wildcard_word'.
+    """
+    if not keywords:
+        return {'regular_words': [], 'wildcard_word': None} 
+    if num_to_generate <= 0:
+        return {'regular_words': [], 'wildcard_word': None}
+
     print(f"\nGenerating {num_to_generate} words based on: {keywords}...")
-    related_words = get_related_words(keywords, max_related=50) # Get a larger pool
-    if not related_words:
-        print("Warning: No related words found for keywords. Cannot generate new words.")
-        return []
+    
+    related_words_pool = get_related_words(keywords, max_related=30) 
+    base_words_for_generation = list(set(related_words_pool + [k.lower().strip() for k in keywords if k.strip()]))
+    random.shuffle(base_words_for_generation)
 
-    available_related_words = list(related_words) # Mutable copy for selection
+    if not base_words_for_generation and num_to_generate > 0:
+        print("Warning: No base words (related or keywords) available for generation.")
+        return {'regular_words': [], 'wildcard_word': None}
 
-    generated_words = set()
+    generated_words_set = set() 
+    wildcard_word_generated = None
     cleaned_keywords = {k.lower().strip() for k in keywords if k.strip()}
-    related_words_set = set(related_words)
-    max_attempts = num_to_generate * 20 # Safety break to avoid infinite loops
-    attempts = 0
 
-    while len(generated_words) < num_to_generate and attempts < max_attempts:
-        attempts += 1
-        strategy = random.choice(['blend', 'affix', 'modify', 'clip', 'reduplicate', 'respell'])
+    # --- 1. Generate one Wildcard Word ---
+    if num_to_generate >= 1:
+        wildcard = generate_wildcard_word(keywords, QUIRKY_WORDS)
+        if wildcard and wildcard.lower() not in cleaned_keywords and len(wildcard) > 3:
+            wildcard_word_generated = wildcard.lower()
+            # Don't add to generated_words_set yet, keep it separate
 
-        base_word = None
-        if not available_related_words:
-            available_related_words = list(related_words) # Refresh if empty
-            if not available_related_words: # Still no words (shouldn't happen if initial check passed)
-                break 
+    # --- 2. Generate remaining words using other strategies ---
+    # Number of regular words to generate depends on whether a wildcard was made
+    num_regular_words_needed = num_to_generate - 1 if wildcard_word_generated else num_to_generate
+    
+    if num_regular_words_needed > 0 and base_words_for_generation:
+        attempts = 0
+        max_attempts = num_regular_words_needed * 15 + 10 
+        current_selection_pool = list(base_words_for_generation)
 
-        try:
-            if strategy == 'blend':
-                if len(available_related_words) >= 2:
-                    w1, w2 = random.sample(available_related_words, 2)
-                    # For blending, we don't necessarily remove them as they are a pair
-                    new_candidates = blend_words(w1, w2)
-                else:
-                    new_candidates = [] # Not enough words to blend
-            elif strategy in ['affix', 'modify', 'clip', 'reduplicate', 'respell']:
-                if available_related_words:
-                    base_word = random.choice(available_related_words)
-                    if base_word in available_related_words: # Check if it's still there (it should be)
-                        try:
-                            available_related_words.remove(base_word) # Try to use each base word less often
-                        except ValueError: # Should not happen if logic is correct
-                            pass 
-                    
-                    if strategy == 'affix':
-                        new_candidates = add_affixes(base_word)
-                    elif strategy == 'modify':
-                        new_candidates = modify_word_phonetically(base_word)
-                    elif strategy == 'clip':
-                        new_candidates = clip_word(base_word)
-                    elif strategy == 'reduplicate':
-                        new_candidates = reduplicate_word(base_word)
-                    elif strategy == 'respell': # New strategy
-                        new_candidates = phonetic_respell(base_word)
-                else:
-                    new_candidates = [] # No base words left in current available pool
-            else:
-                new_candidates = []
+        while len(generated_words_set) < num_regular_words_needed and attempts < max_attempts:
+            attempts += 1
+            if not current_selection_pool:
+                current_selection_pool = list(base_words_for_generation)
+                if not current_selection_pool: break 
+            
+            base_word = random.choice(current_selection_pool)
+            strategy = random.choice([
+                "blend", "affix", "phonetic", "clip", "reduplicate", "respell"
+            ])
+            new_word_candidates = []
+            try:
+                if strategy == "blend" and len(base_words_for_generation) > 1:
+                    possible_partners = [w for w in base_words_for_generation if w != base_word]
+                    if possible_partners:
+                        word2 = random.choice(possible_partners)
+                        new_word_candidates = blend_words(base_word, word2)
+                elif strategy == "affix": new_word_candidates = add_affixes(base_word)
+                elif strategy == "phonetic": new_word_candidates = modify_word_phonetically(base_word)
+                elif strategy == "clip": new_word_candidates = clip_word(base_word)
+                elif strategy == "reduplicate": new_word_candidates = reduplicate_word(base_word)
+                elif strategy == "respell": new_word_candidates = phonetic_respell(base_word)
+            except Exception as e:
+                print(f"Warning: Error during '{strategy}' on word '{base_word}': {e}")
+                continue
 
-            for word in new_candidates:
-                # Final check: not a keyword, not a related word, and not already generated
-                if word not in cleaned_keywords and word not in related_words_set and word not in generated_words:
-                    generated_words.add(word)
-                    if len(generated_words) >= num_to_generate:
-                        break # Exit inner loop if target reached
-        except Exception as e:
-            # Catch potential errors in generation functions
-            print(f"Warning: Error during '{strategy}' generation: {e}")
-            continue # Try next attempt
+            for nw in new_word_candidates:
+                nw_lower = nw.lower()
+                # Ensure candidate is not the wildcard, not a keyword, and not already added
+                if nw_lower and nw_lower != wildcard_word_generated and nw_lower not in cleaned_keywords and nw_lower not in generated_words_set and len(nw_lower) > 3:
+                    generated_words_set.add(nw_lower)
+                if len(generated_words_set) >= num_regular_words_needed: break
+            if len(generated_words_set) >= num_regular_words_needed: break
+    
+    final_regular_words = list(generated_words_set)
+    random.shuffle(final_regular_words)
+    
+    # Construct the final list of regular words, ensuring it doesn't exceed num_regular_words_needed
+    # This can happen if loop finishes due to max_attempts but generated_words_set has fewer items.
+    output_regular_words = final_regular_words[:num_regular_words_needed]
 
-        if len(generated_words) >= num_to_generate:
-             break # Exit outer loop
+    if len(output_regular_words) < num_regular_words_needed and wildcard_word_generated and num_to_generate == 1:
+        # Edge case: if only 1 word requested, it must be the wildcard. If wildcard failed, regular words list might be empty.
+        # If wildcard succeeded and num_to_generate is 1, output_regular_words should be empty.
+        pass # This case should be handled by num_regular_words_needed logic
+    elif len(output_regular_words) < num_regular_words_needed:
+         print(f"Warning: Generated {len(output_regular_words)} regular words, but {num_regular_words_needed} were requested.")
 
-    if attempts >= max_attempts:
-        print(f"Warning: Reached max attempts ({max_attempts}) before generating {num_to_generate} words.")
-
-    print(f"Successfully generated {len(generated_words)} unique words.")
-    return list(generated_words)
+    return {'regular_words': output_regular_words, 'wildcard_word': wildcard_word_generated}
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Generate new words based on keywords.")
@@ -526,15 +572,23 @@ if __name__ == '__main__':
     download_nltk_data()
 
     # Generate words using the main function
-    generated_words_list = generate_new_words(args.keywords, args.num)
+    generation_result = generate_new_words(args.keywords, args.num)
+    regular_words_list = generation_result.get('regular_words', [])
+    wildcard = generation_result.get('wildcard_word')
 
     # Print results
-    print("\n--- Generated Words ---:")
-    if generated_words_list:
-        for i, word in enumerate(generated_words_list):
+    print("\n--- Generated Words ---")
+    if regular_words_list:
+        for i, word in enumerate(regular_words_list):
             print(f"{i+1}. {word}")
-    else:
-        print("(No words generated for the given keywords)")
+    elif not wildcard: # Only print this if there are no regular words AND no wildcard
+        print("(No regular words generated for the given keywords)")
+    
+    if wildcard:
+        print(f"\nWildcard: {wildcard}")
+    elif not regular_words_list: # If both are empty/None
+        print("(No words generated at all)")
+
 
     # Old example code removed
 

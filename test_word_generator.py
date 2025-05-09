@@ -1,8 +1,9 @@
 import pytest
 from word_generator import (
-    get_related_words, download_nltk_data, blend_words, add_affixes, clip_word, modify_word_phonetically, generate_new_words, VOWELS, CONSONANTS, COMMON_PREFIXES, COMMON_SUFFIXES, PLAYFUL_AFFIXES, reduplicate_word, phonetic_respell
+    get_related_words, download_nltk_data, blend_words, add_affixes, clip_word, modify_word_phonetically, generate_new_words, VOWELS, CONSONANTS, COMMON_PREFIXES, COMMON_SUFFIXES, PLAYFUL_AFFIXES, reduplicate_word, phonetic_respell, QUIRKY_WORDS, generate_wildcard_word
 )
 import random
+import unittest.mock as mock
 
 # Ensure NLTK data is available for tests
 # This might download data the first time tests are run
@@ -280,6 +281,7 @@ def test_clip_word_basic():
     clipped = clipped_list[0]
     assert clipped == "info" or clipped == "inf"
     assert clipped != word
+    assert "cry" not in phonetic_respell("cry") # Example of a word that shouldn't change with current rules
 
 def test_clip_word_short():
     """Test clipping words that are too short."""
@@ -344,40 +346,65 @@ def test_generate_new_words_basic():
     random.seed(49)
     keywords = ["document", "share", "team"]
     num_gen = 5
-    generated = generate_new_words(keywords, num_gen)
-    print(f"Generated for {keywords}: {generated}")
-    assert isinstance(generated, list)
-    # Should generate close to the requested number, but might be fewer if generation stalls
-    assert len(generated) <= num_gen
-    assert len(generated) > 0 # Expect at least some results for common words
+    result = generate_new_words(keywords, num_gen)
+    generated_words = result['regular_words']
+    wildcard = result['wildcard_word']
+    print(f"Generated for {keywords}: Regular={generated_words}, Wildcard={wildcard}")
+    
+    assert isinstance(generated_words, list)
+    total_generated_count = len(generated_words) + (1 if wildcard else 0)
+    
+    assert total_generated_count <= num_gen
+    assert total_generated_count > 0 # Expect at least some results for common words
+    
+    if wildcard:
+        assert isinstance(wildcard, str)
+        assert len(wildcard) >=3
+
     cleaned_keywords = {k.lower().strip() for k in keywords}
-    related_words = get_related_words(keywords, 50) # Get related words to check against
+    related_words = get_related_words(keywords, 50) 
     related_set = set(related_words)
-    for word in generated:
+    
+    for word in generated_words:
         assert isinstance(word, str)
         assert word not in cleaned_keywords
-        assert word not in related_set # Ensure generated words are distinct
-        assert len(word) >= 3 # Changed from > 3 to >= 3 to allow clipped words
+        assert word not in related_set 
+        assert len(word) >= 3
+        if wildcard:
+            assert word != wildcard # Regular words should not be the wildcard
+    if wildcard:
+        assert wildcard not in cleaned_keywords
+        assert wildcard not in related_set
 
 def test_generate_new_words_no_related():
-    """Test generation when keywords yield no related words."""
+    """Test generation when keywords yield no related words, but keywords themselves can be used."""
     random.seed(50)
     keywords = ["zyxwabc123", "qpo987"]
     num_gen = 5
-    generated = generate_new_words(keywords, num_gen)
-    print(f"Generated for {keywords}: {generated}")
-    assert isinstance(generated, list)
-    assert len(generated) == 0 # Should return empty list
+    result = generate_new_words(keywords, num_to_generate=num_gen)
+    generated_words = result['regular_words']
+    wildcard = result['wildcard_word']
+    print(f"Generated for (no NLTK related) {keywords}: Regular={generated_words}, Wildcard={wildcard}")
+    
+    assert isinstance(generated_words, list)
+    total_generated_count = len(generated_words) + (1 if wildcard else 0)
+
+    # Expects words to be generated using keywords as base, including a wildcard
+    assert total_generated_count == num_gen 
+    assert all(isinstance(w, str) and len(w) > 0 for w in generated_words)
+    if wildcard:
+        assert isinstance(wildcard, str) and len(wildcard) > 0
 
 def test_generate_new_words_request_zero():
     """Test requesting zero words."""
     random.seed(51)
     keywords = ["test"]
     num_gen = 0
-    generated = generate_new_words(keywords, num_gen)
-    print(f"Generated for {keywords} (n=0): {generated}")
-    assert isinstance(generated, list)
-    assert len(generated) == 0
+    result = generate_new_words(keywords, num_to_generate=num_gen)
+    print(f"Generated for {keywords} (n=0): {result}")
+    assert isinstance(result['regular_words'], list)
+    assert len(result['regular_words']) == 0
+    assert result['wildcard_word'] is None # Expect None for wildcard when 0 requested
 
 def test_reduplicate_word():
     """Tests the reduplicate_word function."""
@@ -521,3 +548,147 @@ def test_phonetic_respell_multiple_rules_possible_random_choice():
     assert len(results) == 1
     assert results[0] in ["coolin'you", "kewlingyou", "coolingu"]
     random.seed(None)
+
+# --- Wildcard Generation Tests --- #
+
+def test_generate_wildcard_word_basic():
+    """Test basic wildcard generation."""
+    keywords = ["test", "keyword"]
+    wildcard = generate_wildcard_word(keywords, QUIRKY_WORDS)
+    print(f"Generated wildcard for {keywords}: {wildcard}")
+    if wildcard:
+        assert isinstance(wildcard, str)
+        assert len(wildcard) > 3
+        # It's hard to assert specifics due to randomness in blending/affixing parts
+        # But it should not be one of the original keywords or quirky words directly
+        assert wildcard not in keywords
+        assert wildcard not in QUIRKY_WORDS
+    else:
+        # It's possible it returns None if blending and fallback affixing fail
+        pass 
+
+def test_generate_wildcard_word_empty_inputs():
+    """Test wildcard generation with empty inputs."""
+    assert generate_wildcard_word([], QUIRKY_WORDS) is None
+    assert generate_wildcard_word(["test"], []) is None
+    assert generate_wildcard_word([], []) is None
+
+@mock.patch('random.choice')
+def test_generate_wildcard_word_mocked_blend(mock_choice):
+    """Test wildcard generation when blending is successful, using mocks."""
+    keywords = ["hello"]
+    quirky_list = ["flummox"]
+    
+    # Mock random.choice calls:
+    # 1. For choosing keyword ("hello") in generate_wildcard_word
+    # 2. For choosing quirky_word ("flummox") in generate_wildcard_word
+    # 3. For choosing from the result of blend_words (e.g., random.choice(["blendedword"])) in generate_wildcard_word
+    mock_choice.side_effect = ["hello", "flummox", "blendedword"] 
+
+    # We need a predictable blend_words. Let's mock it too.
+    with mock.patch('word_generator.blend_words') as mock_blend:
+        mock_blend.return_value = ["blendedword"] # Assume blend_words returns this list
+        wildcard = generate_wildcard_word(keywords, quirky_list)
+        print(f"Mocked blend wildcard: {wildcard}")
+        assert wildcard == "blendedword"
+        mock_blend.assert_called_once_with("hello", "flummox")
+        # Check that random.choice was called three times with the expected arguments from side_effect
+        assert mock_choice.call_count == 3
+        # Check the arguments of the third call to random.choice
+        # The third call is random.choice(['blendedword'])
+        third_call_args = mock_choice.call_args_list[2]
+        assert third_call_args[0][0] == ["blendedword"]
+
+@mock.patch('random.choice')
+def test_generate_wildcard_word_mocked_fallback_affix(mock_choice):
+    """Test wildcard generation fallback (affixing) when blending fails, using mocks."""
+    keywords = ["world"]
+    quirky_list = ["kerfuffle"] # kerfuffle is long enough for fallback
+
+    # Let generate_wildcard_word pick "world" and "kerfuffle"
+    mock_choice.side_effect = ["world", "kerfuffle", "kerf"] # last one for the random.randint part to slice quirky
+    
+    # Mock blend_words to return an empty list (blend failure)
+    # Also mock random.random for the prefix/suffix choice in fallback
+    with mock.patch('word_generator.blend_words') as mock_blend, \
+         mock.patch('random.random') as mock_random_val, \
+         mock.patch('random.randint') as mock_randint: # for slicing quirky_word
+        
+        mock_blend.return_value = [] # Simulate blend failure
+        mock_random_val.return_value = 0.2 # Ensures prefix addition in fallback
+        mock_randint.return_value = 4 # Ensures "kerf" is taken from "kerfuffle"
+        
+        # Reset random.choice for calls within the fallback logic if any
+        # The first two (keyword, quirky_word) are from generate_wildcard_word context
+        # The next random.choice might be from inside the fallback logic if it existed (it doesn't currently)
+        # The random.randint for slicing and random.random for prefix/suffix are mocked separately
+
+        wildcard = generate_wildcard_word(keywords, quirky_list)
+        print(f"Mocked fallback affix wildcard: {wildcard}")
+        assert wildcard == "kerfworld"
+        mock_blend.assert_called_once_with("world", "kerfuffle")
+
+# --- Integration Tests for Generate New Words (related to Wildcard) ---
+
+def test_generate_new_words_includes_wildcard():
+    """Test that generate_new_words includes a wildcard-like word and it's identified."""
+    keywords = ["galaxy", "explore"]
+    num_gen = 5
+    result = generate_new_words(keywords, num_to_generate=num_gen)
+    generated_regular_words = result['regular_words']
+    wildcard = result['wildcard_word']
+
+    print(f"Generated for wildcard test ({keywords}, n={num_gen}): Regular={generated_regular_words}, Wildcard={wildcard}")
+    
+    total_words_count = len(generated_regular_words) + (1 if wildcard else 0)
+    
+    # We expect num_gen words in total if possible.
+    # If num_gen is 5, and a wildcard is made, we expect 4 regular words.
+    # If wildcard fails, we expect 5 regular words.
+    assert total_words_count <= num_gen # Might be less if generation is difficult
+    if num_gen > 0 :
+        assert total_words_count > 0 # Should generate something if num_gen > 0
+
+    if wildcard:
+        assert isinstance(wildcard, str)
+        assert len(wildcard) > 3
+        assert len(generated_regular_words) == num_gen - 1 if total_words_count == num_gen else len(generated_regular_words) <= num_gen -1
+    else: # No wildcard generated (either num_gen was 0 or wildcard generation failed)
+         assert len(generated_regular_words) <= num_gen
+        
+    all_output_words = generated_regular_words + ([wildcard] if wildcard else [])
+    if all_output_words:
+        assert all(isinstance(w, str) for w in all_output_words)
+
+@mock.patch('word_generator.generate_wildcard_word')
+def test_generate_new_words_calls_wildcard_generator(mock_generate_wildcard):
+    """Test that generate_new_words actually calls generate_wildcard_word."""
+    keywords = ["magic", "spell"]
+    num_gen = 3
+    mock_generate_wildcard.return_value = "mockedwildcard"
+    
+    result = generate_new_words(keywords, num_to_generate=num_gen)
+    regular_words = result['regular_words']
+    wildcard = result['wildcard_word']
+
+    print(f"Generated with mocked wildcard ({keywords}, n={num_gen}): Regular={regular_words}, Wildcard={wildcard}")
+    
+    mock_generate_wildcard.assert_called_once_with(keywords, QUIRKY_WORDS)
+    assert wildcard == "mockedwildcard"
+    assert len(regular_words) == num_gen - 1 # Expect num_gen - 1 regular words
+    assert len(regular_words) + (1 if wildcard else 0) == num_gen
+
+def test_generate_new_words_wildcard_only():
+    """Test generating only one word, which should be the wildcard."""
+    keywords = ["mystery", "solve"]
+    num_gen = 1
+    with mock.patch('word_generator.generate_wildcard_word') as mock_gww:
+        mock_gww.return_value = "superquirkyblend"
+        result = generate_new_words(keywords, num_to_generate=num_gen)
+        regular_words = result['regular_words']
+        wildcard = result['wildcard_word']
+        print(f"Generated (wildcard only) for {keywords}: Regular={regular_words}, Wildcard={wildcard}")
+        
+        assert wildcard == "superquirkyblend"
+        assert len(regular_words) == 0 # No regular words should be generated
+        mock_gww.assert_called_once_with(keywords, QUIRKY_WORDS)
