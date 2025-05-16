@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newslang Word Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Newslang Word Generator</h1>
+    </header>
+    
+    <main>
+        <section id="input-area">
+            <h2>Enter Your Keywords</h2>
+            <label for="keywordsInput">Keywords (comma-separated):</label>
+            <input type="text" id="keywordsInput" placeholder="e.g., fun, playful, game">
+            
+            <label for="numWordsSlider">Number of words to generate: <span id="numWordsValue">5</span></label>
+            <input type="range" id="numWordsSlider" value="5" min="1" max="10">
+            
+            <button id="generateBtn">Generate Words</button>
+        </section>
+        
+        <section id="output-area">
+            <h2>Generated Words</h2>
+            <div id="regularWordsOutput">
+                <!-- Regular words will appear here -->
+            </div>
+            <div id="wildcardWordOutput">
+                <!-- Wildcard word will appear here -->
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Newslang Project</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html> 

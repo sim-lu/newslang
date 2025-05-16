@@ -1,9 +1,9 @@
-    venv/
-    .cursor/
-    __pycache__/
-    *.pyc
-    *.pyo
-    *.pyd
-    .DS_Store
-    nltk
-    pytest
+venv/
+.cursor/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+nltk
+pytest

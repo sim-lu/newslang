@@ -1,0 +1,193 @@
+/* Static CSS file for Newslang Word Generator */
+
+:root {
+    --primary-color: #00BCD4; /* Bright Cyan/Teal */
+    --secondary-color: #FF9800; /* Warm Orange */
+    --accent-hover-color: #00ACC1; /* Darker Cyan/Teal for hover */
+    --background-color: #f8f9fa; /* Very Light Gray */
+    --card-background-color: #ffffff;
+    --text-color: #343a40; /* Dark Gray/Charcoal */
+    --subtle-text-color: #6c757d;
+    --border-color: #dee2e6;
+    --success-color: #28a745;
+    --error-color: #dc3545;
+    --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    font-size: 16px;
+}
+
+header {
+    background: var(--primary-color);
+    color: var(--card-background-color);
+    padding: 1.5rem 0;
+    text-align: center;
+    box-shadow: var(--box-shadow);
+}
+
+header h1 {
+    margin: 0;
+    font-size: 2.25rem;
+    font-weight: 600;
+}
+
+main {
+    padding: 1.5rem;
+    max-width: 700px;
+    margin: 30px auto;
+}
+
+#input-area, #output-area {
+    margin-bottom: 25px;
+    padding: 25px;
+    background: var(--card-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--box-shadow);
+}
+
+#input-area h2, #output-area h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--primary-color);
+    font-size: 1.75rem;
+    font-weight: 500;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--subtle-text-color);
+}
+
+/* Styling for the text input for keywords */
+input[type="text"]#keywordsInput {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 1rem;
+}
+input[type="text"]#keywordsInput:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(0,188,212,.25);
+    outline: none;
+}
+
+/* Styling for the range slider */
+input[type="range"]#numWordsSlider {
+    width: 100%;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent; /* Otherwise a grey background appears on some browsers */
+}
+
+input[type="range"]#numWordsSlider::-webkit-slider-runnable-track {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+input[type="range"]#numWordsSlider::-moz-range-track {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+input[type="range"]#numWordsSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    margin-top: -6px; /* Vertically center thumb */
+    width: 20px;
+    height: 20px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    border: 2px solid var(--card-background-color);
+}
+
+input[type="range"]#numWordsSlider::-moz-range-thumb {
+    width: 18px; /* Adjusted for consistency */
+    height: 18px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    border: 2px solid var(--card-background-color);
+}
+
+input[type="range"]#numWordsSlider:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 5px var(--primary-color), 0 0 0 0.2rem rgba(0,188,212,.25);
+}
+input[type="range"]#numWordsSlider:focus::-moz-range-thumb {
+    box-shadow: 0 0 5px var(--primary-color), 0 0 0 0.2rem rgba(0,188,212,.25);
+}
+
+
+span#numWordsValue {
+    font-weight: bold;
+    color: var(--secondary-color);
+    margin-left: 8px;
+}
+
+button#generateBtn {
+    display: inline-block; /* Changed from block */
+    background: var(--success-color);
+    color: white;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.05rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease-in-out;
+}
+
+button#generateBtn:hover {
+    background: #218838; /* Darker green */
+}
+
+#regularWordsOutput ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+#regularWordsOutput ul li {
+    background: #eefbfd; /* Light cyan background for words */
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: 4px;
+    border-left: 4px solid var(--primary-color);
+    font-size: 1.05rem;
+}
+
+#wildcardWordOutput p {
+    font-weight: bold;
+    color: var(--secondary-color);
+    background: #fff3e0; /* Light orange background for wildcard */
+    padding: 10px 12px;
+    border-radius: 4px;
+    border-left: 4px solid var(--secondary-color);
+    font-size: 1.1rem;
+}
+
+footer {
+    text-align: center;
+    padding: 1.5rem 0;
+    margin-top: 30px;
+    color: var(--subtle-text-color);
+    font-size: 0.9em;
+    border-top: 1px solid var(--border-color);
+} 
