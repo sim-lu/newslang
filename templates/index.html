@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewSlang Word Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>NewSlang Word Generator</h1>
+        
+        <div class="input-section">
+            <div class="form-group">
+                <label for="keywords">Enter Keywords (comma-separated):</label>
+                <input type="text" id="keywords" placeholder="e.g., fun, bright, idea">
+            </div>
+            
+            <div class="form-group">
+                <label for="numWords">Number of Words to Generate: <span id="numWordsValue">5</span></label>
+                <input type="range" id="numWords" min="1" max="10" value="5">
+            </div>
+            
+            <div class="button-group">
+                <button id="generateBtn">Generate</button>
+                <button id="rerollBtn" style="display: none;">Re-roll</button>
+            </div>
+        </div>
+        
+        <div id="loadingSpinner" class="spinner" style="display: none;"></div>
+        
+        <div class="results-section">
+            <h2>Generated Words:</h2>
+            <div id="regularWordsOutput">
+                <!-- Regular words will be displayed here -->
+            </div>
+            
+            <div id="wildcardWordOutput">
+                <!-- Wildcard word will be displayed here -->
+            </div>
+            <button id="copyAllBtn" style="display: none;">Copy All Words</button>
+        </div>
+        
+    </div>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

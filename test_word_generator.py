@@ -709,4 +709,3 @@ def test_generate_new_words_wildcard_only():
 
 # TODO: Add tests for pronounceability heuristics if they become more complex.
 # TODO: Add tests for specific slang pattern emulations if those are developed.
-```

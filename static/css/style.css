@@ -1,0 +1,171 @@
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f0f2f5;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+}
+
+.container {
+    background-color: #ffffff;
+    padding: 30px 40px;
+    border-radius: 12px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
+}
+
+h1 {
+    color: #ff6b6b; /* Bright red/coral */
+    margin-bottom: 30px;
+    font-size: 2.5em;
+}
+
+.input-section {
+    margin-bottom: 30px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #555;
+}
+
+.form-group input[type="text"],
+.form-group input[type="range"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 1em;
+}
+
+.form-group input[type="range"] {
+    padding: 0;
+    accent-color: #ff6b6b;
+}
+
+#numWordsValue {
+    font-weight: bold;
+    color: #ff6b6b;
+}
+
+.button-group {
+    margin-top: 25px;
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+button {
+    background-color: #ff6b6b; /* Bright red/coral */
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.3s ease, transform 0.1s ease;
+}
+
+button:hover {
+    background-color: #e05252; /* Darker shade for hover */
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button#rerollBtn {
+    background-color: #4ecdc4; /* Teal/aqua for re-roll */
+}
+
+button#rerollBtn:hover {
+    background-color: #3aa89f;
+}
+
+button#copyAllBtn {
+    background-color: #5cb85c; /* Green for copy */
+    margin-top: 15px;
+}
+
+button#copyAllBtn:hover {
+    background-color: #4cae4c;
+}
+
+.results-section {
+    margin-top: 30px;
+    text-align: left;
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+}
+
+.results-section h2 {
+    color: #ff6b6b;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#regularWordsOutput,
+#wildcardWordOutput {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 15px;
+    min-height: 50px;
+    border: 1px solid #eee;
+}
+
+#wildcardWordOutput {
+    border-left: 4px solid #feca57; /* Yellow accent for wildcard */
+}
+
+#wildcardWordOutput strong {
+    color: #d99b22;
+}
+
+.spinner {
+    border: 6px solid #f3f3f3; /* Light grey */
+    border-top: 6px solid #ff6b6b; /* Bright red/coral */
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 20px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Basic responsive adjustments */
+@media (max-width: 600px) {
+    .container {
+        margin: 10px;
+        padding: 20px;
+    }
+    h1 {
+        font-size: 2em;
+    }
+    button {
+        padding: 10px 15px;
+        font-size: 0.9em;
+    }
+    .button-group {
+        flex-direction: column;
+    }
+}

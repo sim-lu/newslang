@@ -639,4 +639,3 @@ if __name__ == "__main__":
         
         if not output["regular_words"] and not output["wildcard_word"]:
             print("No words could be generated with the given inputs and settings.")
-```
