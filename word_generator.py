@@ -250,363 +250,393 @@ def clip_word(word: str) -> list[str]:
     # Avoid returning original word if it was already short
     if clipped == word:
         return []
+    return [clipped]
 
-    # Ensure the clipped word is not just one or two characters if original was longer
-    if len(clipped) <= 2 and len(word) > 2:
-        return []
+# --- Reduplication --- # 
 
-    return [clipped] if clipped != word and len(clipped) >= 3 else []
+def _get_last_syllable_heuristic(word: str) -> str:
+    """Heuristic to get the perceived last syllable or a significant ending part."""
+    if not word or len(word) < 2:
+        return word
 
-# --- Reduplication --- #
-
-def reduplicate_word(word: str) -> list[str]:
-    """
-    Creates a new word by reduplicating the suffix of the original word.
-    e.g., "happy" -> "happyappy" (if VOWELS="aeiou"), "wonder" -> "wonderer"
-
-    Args:
-        word: The word to reduplicate.
-
-    Returns:
-        A list containing the reduplicated word, or an empty list if criteria not met.
-    """
-    word = word.lower()
-    # --- REMOVING DEBUGGING STEP FOR "cat" --- #
-    # if word == "cat":
-    #     return ["catat"]
-    # --- END DEBUGGING STEP --- #
-
-    if len(word) < 3: # Ensure this is < 3
-        return []
-
-    segment_to_reduplicate = ""
+    # Find the last vowel
     last_vowel_index = -1
-    # Find the last vowel in the word
-    for i in range(len(word) -1, -1, -1):
+    for i in range(len(word) - 1, -1, -1):
         if word[i] in VOWELS:
             last_vowel_index = i
             break
-
-    if last_vowel_index != -1:
-        # If the vowel is one of the last two characters, segment is the last two characters
-        # Otherwise, segment is from the last vowel to the end of the word
-        if last_vowel_index >= len(word) - 2 :
-            segment_to_reduplicate = word[-2:]
-        else:
-            segment_to_reduplicate = word[last_vowel_index:]
     
-    # Fallback: if no vowel found or segment is too short, try last 2 chars if word is long enough
-    if not segment_to_reduplicate or len(segment_to_reduplicate) < 2:
-        if len(word) > 4: # Ensure word is long enough for a 2-char segment
-            segment_to_reduplicate = word[-2:]
-        else:
-            return [] # Not enough to make a meaningful reduplication
+    if last_vowel_index == -1: # No vowels (e.g., "rhythm")
+        return word[-2:] if len(word) >= 2 else word # take last two chars if possible
+
+    # Try to capture from the last vowel onwards, or a bit before if it makes sense
+    start_index = last_vowel_index
     
-    if not segment_to_reduplicate: # Still nothing?
+    # If the last vowel is not the first letter, and char before it is a consonant, include it.
+    if last_vowel_index > 0 and word[last_vowel_index - 1] in CONSONANTS:
+        start_index = last_vowel_index - 1
+        # If that consonant is preceded by another vowel, maybe the split is at the last vowel itself.
+        # Example: "example" -> last_vowel_index is 'e' (6). word[5]='l'. start_index=5. 'ple'
+        # "computer" -> last_vowel_index is 'e' (5). word[4]='t'. start_index=4. 'ter'
+        # "happy" -> last_vowel_index is 'y' (4). word[3]='p'. start_index=3. 'ppy'
+
+    # If the result is too short, try to make it longer by including more from the end
+    segment = word[start_index:]
+    if len(segment) < 2 and len(word) >= 2:
+        return word[-2:] # Fallback to last two chars
+    if len(segment) == 1 and len(word) >= 3:
+        return word[-3:] # Fallback to last three if segment is just one char and word is longer
+    
+    return segment
+
+def reduplicate_word(word: str, mode: str = 'suffix_partial') -> list[str]:
+    """
+    Creates a new word by reduplicating a part of the original word.
+
+    Args:
+        word: The base word.
+        mode: 'suffix_partial' (repeats a heuristic last syllable/segment), 
+              'root_modified_playful' (repeats root and modifies the duplicated part playfullly).
+
+    Returns:
+        A list containing the reduplicated word, or empty if not applicable.
+    """
+    word = word.lower()
+    if len(word) < 3: # Too short to meaningfully reduplicate
         return []
 
-    # Avoid nonsensical single-character reduplications or if segment is same as word
-    if len(segment_to_reduplicate) < 2 or segment_to_reduplicate == word:
-        return []
+    reduplicated_words = []
 
-    new_word = word + segment_to_reduplicate
+    if mode == 'suffix_partial':
+        # Heuristic: try to get the last syllable or a meaningful ending part
+        # This is a simplification; true syllabification is complex.
+        # segment_to_reduplicate = word[-2:] # Simplest: last two letters
+        segment_to_reduplicate = _get_last_syllable_heuristic(word)
 
-    # Prevent overly long words
-    if len(new_word) > 20:
-        return []
+        if segment_to_reduplicate and len(segment_to_reduplicate) >=1 : # Ensure segment is not empty
+            new_word = word + segment_to_reduplicate
+            if len(new_word) < 25 : # Max length
+                 reduplicated_words.append(new_word)
+    
+    elif mode == 'root_modified_playful':
+        # Repeat the root, and modify the duplicated part by changing one letter
+        # e.g., happy -> happy + modified(happy) -> happy + hoppy / happy + happa etc.
+        # For simplicity, let's just append a modified version of the last letter or a short segment
+        if len(word) > 0:
+            last_char = word[-1]
+            if last_char in VOWELS:
+                possible_replacements = [v for v in VOWELS if v != last_char]
+            elif last_char in CONSONANTS:
+                possible_replacements = [c for c in CONSONANTS if c != last_char]
+            else: # Unlikely, but handle
+                possible_replacements = list(string.ascii_lowercase)
+            
+            if possible_replacements:
+                new_ending_char = random.choice(possible_replacements)
+                new_word = word + new_ending_char
+            else: # Only one type of vowel/consonant, e.g. "aaaa"
+                new_word = word + random.choice(string.ascii_lowercase) # add a random letter
+            
+            if len(new_word) < 25:
+                 reduplicated_words.append(new_word)
 
-    return [new_word]
+    elif mode == 'suffix_full': # Example: not currently used by default generator
+        # Full suffix reduplication (e.g., "go" -> "gogo") - this is more like "echo"
+        # Might be too simplistic or create non-words often.
+        # If word is short, this can be effective.
+        if len(word) <= 4 : # Apply only to short words for better effect
+            new_word = word + word
+            if len(new_word) < 25:
+                reduplicated_words.append(new_word)
+    else:
+        raise ValueError(f"Unknown reduplication mode: {mode}")
+
+    return [w for w in reduplicated_words if w != word] # Ensure it's a new word
+
 
 # --- Phonetic Respelling --- #
 
+# Define rules for phonetic respelling as (pattern_to_find, replacement)
+# These rules are applied sequentially. More specific rules should come first.
+# Using simple string replacement for now. Regex could make it more powerful.
+PHONETIC_RESPELLING_RULES = {
+    # Suffixes
+    "ing": "in'", # "running" -> "runnin'"
+    # Whole words or common patterns
+    "cool": "kewl",
+    "you": "u",
+    "your": "ur",
+    # "the": "da", # Can be too much
+    # "for": "4",
+    # "to": "2", # If we want leetspeak elements
+    # "ate": "8",
+}
+
 def phonetic_respell(word: str) -> list[str]:
     """
-    Applies common phonetic respellings to a word.
-    e.g., "running" -> "runnin'"
+    Applies phonetic respelling rules to a word.
+    Currently applies at most one rule that matches.
 
     Args:
         word: The word to respell.
 
     Returns:
-        A list containing the respelled word if a change was made, otherwise an empty list.
+        A list containing the respelled word if a rule applied, else empty list.
     """
     word_lower = word.lower()
-    original_word = word_lower # Keep a copy for comparison
-    respelled_variations = set()
-
-    # Rule 1: -ing -> -in'
-    # Apply rules sequentially. word_modified will hold the current state.
-    word_modified = word_lower
-    changed_by_rule = False
-
-    if word_modified.endswith("ing") and len(word_modified) > 3:
-        word_modified = word_modified[:-3] + "in'"
-        changed_by_rule = True
-
-    # Rule 2: Specific substitutions
-    # These apply to the potentially already modified word.
-    # We should be careful if a word can be modified by multiple rules to avoid chaos.
-    # For now, let's assume only one major respelling rule applies or the first one wins.
-    # Let's re-think: apply rules to original_word and collect variations.
-
-    # --- Attempt 2: Apply rules to original and collect distinct variations --- # 
-    potential_respellings = set() # Store results of rules
-
-    # Rule 1: -ing -> -in' (applied to original word)
-    if original_word.endswith("ing") and len(original_word) > 3:
-        potential_respellings.add(original_word[:-3] + "in'")
-
-    # Rule 2: "cool" -> "kewl" (substring replacement on original)
-    if "cool" in original_word:
-        potential_respellings.add(original_word.replace("cool", "kewl", 1)) # Replace only first for now
-
-    # Rule 3: "you" -> "u" (substring replacement on original)
-    # This is broad. Consider if it should only apply if word IS "you".
-    # For now, simple replacement of first instance.
-    if "you" in original_word:
-        potential_respellings.add(original_word.replace("you", "u", 1))
-
-    # Filter out unchanged words and select one if changes were made
-    valid_new_words = [v for v in potential_respellings if v != original_word and v]
-
-    if not valid_new_words:
-        return []
     
-    return [random.choice(valid_new_words)] # Return one random valid respelling
+    # Check for whole word direct replacements first
+    if word_lower in PHONETIC_RESPELLING_RULES:
+        respelled = PHONETIC_RESPELLING_RULES[word_lower]
+        if respelled != word_lower: # Ensure it's a change
+            return [respelled]
+        # If replacement is same as original (e.g. rule to normalize), treat as no change by this rule
 
-# --- Phonetic Modification --- #
+    # Check for suffix rules (currently only "-ing")
+    if word_lower.endswith("ing") and "ing" in PHONETIC_RESPELLING_RULES:
+        # Ensure it's not a very short word that happens to end in "ing" like "sing"
+        # Let's say the part before "ing" must be at least 2 chars, so word len > 4
+        if len(word_lower) > 4:
+            base = word_lower[:-3]
+            respelled = base + PHONETIC_RESPELLING_RULES["ing"]
+            if respelled != word_lower:
+                return [respelled]
+    
+    # Add other types of rules here (e.g., regex-based, internal changes)
+    
+    return [] # No rule applied or no change made
+
+# --- Phonetic Modification (Vowel/Consonant Swap) --- #
 
 def modify_word_phonetically(word: str) -> list[str]:
     """
-    Creates slight phonetic variations of a word by substituting
-    a single vowel or consonant.
+    Modifies a word by changing one vowel to another or one consonant to another.
 
     Args:
-        word: The base word.
+        word: The word to modify.
 
     Returns:
-        A list containing one modified word (or empty if modification fails).
+        A list of modified words (or empty list if no modification is suitable).
     """
     word = word.lower()
-    if len(word) < 3: # Too short to modify meaningfully
+    if len(word) < 2: # Too short to modify meaningfully
         return []
 
-    modified_word = list(word)
-    indices = list(range(len(word)))
-    random.shuffle(indices)
+    modified_versions = set()
+    num_modifications_to_try = 1 # Try to make one distinct modification
 
-    for index in indices:
-        char = modified_word[index]
+    for _ in range(10): # Try a few times to find a modification
+        if len(modified_versions) >= num_modifications_to_try:
+            break
 
-        if char in VOWELS:
-            # Substitute with a different vowel
-            new_vowel = random.choice(VOWELS)
-            while new_vowel == char:
-                new_vowel = random.choice(VOWELS)
-            modified_word[index] = new_vowel
-            # Simple pronounceability check: avoid triple vowels/consonants
-            mod_str = "".join(modified_word)
-            if not (any(c*3 in mod_str for c in VOWELS) or any(c*3 in mod_str for c in CONSONANTS)):
-                 return [mod_str]
-            else:
-                 modified_word[index] = char # Revert if bad
+        char_index = random.randrange(len(word))
+        original_char = word[char_index]
+        new_char = original_char
 
-        elif char in CONSONANTS:
-            # Substitute with a different consonant
-            new_consonant = random.choice(CONSONANTS)
-            while new_consonant == char:
-                new_consonant = random.choice(CONSONANTS)
-            modified_word[index] = new_consonant
-            # Simple pronounceability check
-            mod_str = "".join(modified_word)
-            if not (any(c*3 in mod_str for c in VOWELS) or any(c*3 in mod_str for c in CONSONANTS)):
-                 return [mod_str]
-            else:
-                 modified_word[index] = char # Revert
+        if original_char in VOWELS:
+            possible_new_chars = [v for v in VOWELS if v != original_char]
+            if possible_new_chars:
+                new_char = random.choice(possible_new_chars)
+        elif original_char in CONSONANTS:
+            possible_new_chars = [c for c in CONSONANTS if c != original_char]
+            if possible_new_chars:
+                new_char = random.choice(possible_new_chars)
+        
+        if new_char != original_char:
+            modified_word = list(word)
+            modified_word[char_index] = new_char
+            modified_word_str = "".join(modified_word)
+            # Basic pronounceability/quality checks can be added here if needed
+            if len(modified_word_str) > 2: # Keep it reasonably long
+                modified_versions.add(modified_word_str)
+    
+    return list(modified_versions)
 
-    return [] # Return empty if no successful modification found after trying all indices
+# --- Wildcard Word Generation --- #
 
 QUIRKY_WORDS = [
-    "kerfuffle", "flummox", "hullabaloo", "bamboozle", "gobbledygook",
-    "malarkey", "wobegone", "snollygoster", "collywobbles", "nincompoop",
-    "bumfuzzle", "lollygag", "codswallop", "taradiddle", "skulduggery"
+    "kerfuffle", "flummox", "hullabaloo", "bamboozle", "gobbledygook", "malarkey", 
+    "wobegone", "snollygoster", "collywobbles", "nincompoop", "rambunctious", 
+    "skulduggery", "persnickety", "codswallop", "hornswoggle", "cantankerous",
+    "lollygag", "flibbertigibbet", "whatchamacallit", "thingamajig", "doohickey",
+    "discombobulate", "finagle", "shenanigans", "cattywampus", "rigmarole"
 ]
 
 def generate_wildcard_word(user_keywords: list[str], quirky_inspiration_list: list[str]) -> str | None:
     """
-    Generates a 'wildcard' word by combining a user keyword with an inspirational quirky word.
-
-    Args:
-        user_keywords: A list of keywords provided by the user.
-        quirky_inspiration_list: A list of quirky words to draw inspiration from.
-
-    Returns:
-        A new wildcard word as a string, or None if generation fails.
+    Generates a single "wildcard" word by combining a user keyword with a quirky inspirational word.
+    Primarily tries blending, falls back to affixing if blending yields no results.
     """
     if not user_keywords or not quirky_inspiration_list:
         return None
 
-    keyword = random.choice(user_keywords)
-    quirky_word = random.choice(quirky_inspiration_list)
+    chosen_user_keyword = random.choice(user_keywords)
+    chosen_quirky_word = random.choice(quirky_inspiration_list)
 
-    # Attempt to blend them.
-    blended_wildcards = blend_words(keyword, quirky_word)
+    # Attempt 1: Blend the user keyword with the quirky word
+    blended_wildcards = blend_words(chosen_user_keyword, chosen_quirky_word)
+    if not blended_wildcards: # Try blending the other way if first failed
+        blended_wildcards = blend_words(chosen_quirky_word, chosen_user_keyword)
+    
     if blended_wildcards:
         return random.choice(blended_wildcards)
 
-    # Fallback: if blending fails, try affixing part of the quirky word to the keyword
-    if len(quirky_word) > 4:
-        quirk_part = quirky_word[:random.randint(2,4)] # take a small part of the quirky word
-        if random.random() < 0.5: # prefix
-            new_word = quirk_part + keyword
-        else: # suffix
-            new_word = keyword + quirk_part
-        
-        # Basic filter for the fallback
-        if new_word != keyword and new_word != quirky_word and len(new_word) > 3:
-            return new_word
+    # Fallback 1: Try to affix the user keyword (playfully if possible)
+    affixed_user_key = add_affixes(chosen_user_keyword, playful_prob=0.7)
+    if affixed_user_key:
+        return random.choice(affixed_user_key)
     
-    return None
+    # Fallback 2: Try to affix the quirky word
+    affixed_quirky = add_affixes(chosen_quirky_word, playful_prob=0.7)
+    if affixed_quirky:
+        return random.choice(affixed_quirky)
+        
+    # Fallback 3: If all else fails, return a slightly modified quirky word or user keyword
+    # (e.g., simple phonetic modification)
+    modified_quirky = modify_word_phonetically(chosen_quirky_word)
+    if modified_quirky:
+        return random.choice(modified_quirky)
+    
+    modified_user_key = modify_word_phonetically(chosen_user_keyword)
+    if modified_user_key:
+        return random.choice(modified_user_key)
 
-# --- Main Generation Logic --- #
+    return chosen_user_keyword + chosen_quirky_word[:3] # Last resort crude concat
+
+# --- Main Generation Orchestration --- #
 
 def generate_new_words(keywords: list[str], num_to_generate: int = 10) -> dict:
     """
-    Generates a list of new, potentially playful words based on input keywords
-    using various strategies. Ensures one wildcard word if possible.
-    Returns a dictionary with 'regular_words' and 'wildcard_word'.
+    Generates a specified number of new words based on keywords and various strategies.
+    Ensures one "wildcard" word is part of the output if num_to_generate >= 1.
+
+    Args:
+        keywords: A list of base keywords.
+        num_to_generate: The total number of words desired (including the wildcard).
+
+    Returns:
+        A dictionary: {"regular_words": list_of_strings, "wildcard_word": string_or_None}
     """
-    if not keywords:
-        return {'regular_words': [], 'wildcard_word': None} 
-    if num_to_generate <= 0:
-        return {'regular_words': [], 'wildcard_word': None}
+    if not keywords or num_to_generate <= 0:
+        return {"regular_words": [], "wildcard_word": None}
 
-    print(f"\nGenerating {num_to_generate} words based on: {keywords}...")
+    related_words_pool = get_related_words(keywords, max_related=30) # Get a larger pool
+    # If no related words found, use the original keywords as the pool
+    if not related_words_pool:
+        related_words_pool = [k.lower().strip() for k in keywords if k.strip() and len(k) > 2] 
+
+    if not related_words_pool: # Still no words to work with (e.g. keywords were too short or invalid)
+         return {"regular_words": [], "wildcard_word": generate_wildcard_word(keywords, QUIRKY_WORDS) if num_to_generate >=1 else None}
+
+
+    generated_words = set() # Use a set to ensure uniqueness for regular words
     
-    related_words_pool = get_related_words(keywords, max_related=30) 
-    base_words_for_generation = list(set(related_words_pool + [k.lower().strip() for k in keywords if k.strip()]))
-    random.shuffle(base_words_for_generation)
+    # Determine number of regular words to generate
+    # Wildcard is always generated if num_to_generate >= 1
+    num_regular_to_generate = num_to_generate - 1 if num_to_generate >= 1 else 0
 
-    if not base_words_for_generation and num_to_generate > 0:
-        print("Warning: No base words (related or keywords) available for generation.")
-        return {'regular_words': [], 'wildcard_word': None}
+    # Strategies to apply (functions themselves)
+    strategies = [
+        blend_words, 
+        add_affixes, 
+        clip_word, 
+        modify_word_phonetically,
+        reduplicate_word, # Add new strategy
+        phonetic_respell  # Add new strategy
+    ]
 
-    generated_words_set = set() 
-    wildcard_word_generated = None
-    cleaned_keywords = {k.lower().strip() for k in keywords if k.strip()}
+    attempts = 0
+    max_attempts = num_regular_to_generate * 20 + 20 # Allow more attempts to find unique words
 
-    # --- 1. Generate one Wildcard Word ---
+    while len(generated_words) < num_regular_to_generate and attempts < max_attempts:
+        attempts += 1
+        
+        # Pick one or two base words from the pool for this iteration
+        # Varying this more can increase diversity
+        if len(related_words_pool) >= 2 and random.random() < 0.6: # 60% chance to use two words for blending
+            base1, base2 = random.sample(related_words_pool, 2)
+        elif related_words_pool: # Use one word
+            base1 = random.choice(related_words_pool)
+            base2 = None # Indicate only one base word is primary for this round
+        else: # Should not happen if pool was validated, but as a fallback
+            break
+
+        strategy_func = random.choice(strategies)
+        new_potentials = []
+
+        try:
+            if strategy_func == blend_words:
+                if base2: # Requires two words
+                    new_potentials = strategy_func(base1, base2)
+                else: # Try blending base1 with another random word from pool if available
+                    if len(related_words_pool) >=2:
+                        temp_base2 = random.choice([w for w in related_words_pool if w != base1])
+                        if temp_base2:
+                            new_potentials = strategy_func(base1, temp_base2)
+                    elif keywords: # Fallback: blend with an original keyword
+                         temp_base2 = random.choice([k for k in keywords if k.lower().strip() != base1])
+                         if temp_base2:
+                            new_potentials = strategy_func(base1, temp_base2.lower().strip())
+            
+            elif strategy_func in [add_affixes, clip_word, modify_word_phonetically, reduplicate_word, phonetic_respell]:
+                # These strategies take one word
+                new_potentials = strategy_func(base1)
+            
+        except Exception as e:
+            print(f"Error during strategy {strategy_func.__name__} with '{base1}', '{base2 if base2 else ''}': {e}")
+            continue # Skip to next attempt if a strategy fails
+
+        for word in new_potentials:
+            if word and word not in keywords and len(word) > 2 and len(word) < 20: # Basic quality filter
+                # More sophisticated pronounceability check could go here
+                generated_words.add(word)
+                if len(generated_words) >= num_regular_to_generate:
+                    break
+        if len(generated_words) >= num_regular_to_generate:
+            break
+            
+    # Generate the wildcard word
+    wildcard = None
     if num_to_generate >= 1:
         wildcard = generate_wildcard_word(keywords, QUIRKY_WORDS)
-        if wildcard and wildcard.lower() not in cleaned_keywords and len(wildcard) > 3:
-            wildcard_word_generated = wildcard.lower()
-            # Don't add to generated_words_set yet, keep it separate
+        # Ensure wildcard is not already in regular generated words
+        if wildcard and wildcard in generated_words:
+            # If conflict, try to generate a different wildcard or just let it be (it's a small chance)
+            # For simplicity, we might allow it, or try one re-generation for wildcard.
+            pass # Current: allow potential duplicate between wildcard and regular if it happens.
 
-    # --- 2. Generate remaining words using other strategies ---
-    # Number of regular words to generate depends on whether a wildcard was made
-    num_regular_words_needed = num_to_generate - 1 if wildcard_word_generated else num_to_generate
-    
-    if num_regular_words_needed > 0 and base_words_for_generation:
-        attempts = 0
-        max_attempts = num_regular_words_needed * 15 + 10 
-        current_selection_pool = list(base_words_for_generation)
+    final_regular_words = list(generated_words)
+    random.shuffle(final_regular_words) # Shuffle for varied output order
 
-        while len(generated_words_set) < num_regular_words_needed and attempts < max_attempts:
-            attempts += 1
-            if not current_selection_pool:
-                current_selection_pool = list(base_words_for_generation)
-                if not current_selection_pool: break 
-            
-            base_word = random.choice(current_selection_pool)
-            strategy = random.choice([
-                "blend", "affix", "phonetic", "clip", "reduplicate", "respell"
-            ])
-            new_word_candidates = []
-            try:
-                if strategy == "blend" and len(base_words_for_generation) > 1:
-                    possible_partners = [w for w in base_words_for_generation if w != base_word]
-                    if possible_partners:
-                        word2 = random.choice(possible_partners)
-                        new_word_candidates = blend_words(base_word, word2)
-                elif strategy == "affix": new_word_candidates = add_affixes(base_word)
-                elif strategy == "phonetic": new_word_candidates = modify_word_phonetically(base_word)
-                elif strategy == "clip": new_word_candidates = clip_word(base_word)
-                elif strategy == "reduplicate": new_word_candidates = reduplicate_word(base_word)
-                elif strategy == "respell": new_word_candidates = phonetic_respell(base_word)
-            except Exception as e:
-                print(f"Warning: Error during '{strategy}' on word '{base_word}': {e}")
-                continue
+    return {
+        "regular_words": final_regular_words[:num_regular_to_generate],
+        "wildcard_word": wildcard
+    }
 
-            for nw in new_word_candidates:
-                nw_lower = nw.lower()
-                # Ensure candidate is not the wildcard, not a keyword, and not already added
-                if nw_lower and nw_lower != wildcard_word_generated and nw_lower not in cleaned_keywords and nw_lower not in generated_words_set and len(nw_lower) > 3:
-                    generated_words_set.add(nw_lower)
-                if len(generated_words_set) >= num_regular_words_needed: break
-            if len(generated_words_set) >= num_regular_words_needed: break
-    
-    final_regular_words = list(generated_words_set)
-    random.shuffle(final_regular_words)
-    
-    # Construct the final list of regular words, ensuring it doesn't exceed num_regular_words_needed
-    # This can happen if loop finishes due to max_attempts but generated_words_set has fewer items.
-    output_regular_words = final_regular_words[:num_regular_words_needed]
 
-    if len(output_regular_words) < num_regular_words_needed and wildcard_word_generated and num_to_generate == 1:
-        # Edge case: if only 1 word requested, it must be the wildcard. If wildcard failed, regular words list might be empty.
-        # If wildcard succeeded and num_to_generate is 1, output_regular_words should be empty.
-        pass # This case should be handled by num_regular_words_needed logic
-    elif len(output_regular_words) < num_regular_words_needed:
-         print(f"Warning: Generated {len(output_regular_words)} regular words, but {num_regular_words_needed} were requested.")
-
-    return {'regular_words': output_regular_words, 'wildcard_word': wildcard_word_generated}
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate new words based on keywords.")
-    parser.add_argument('keywords', nargs='+', help='One or more keywords to base generation on.')
-    parser.add_argument('-n', '--num', type=int, default=10, help='Number of words to generate.')
-
+    parser.add_argument("keywords", nargs='+', help="One or more base keywords.")
+    parser.add_argument("-n", "--num", type=int, default=10, help="Number of words to generate (default: 10, min: 1).")
     args = parser.parse_args()
 
-    # Ensure NLTK data is available before proceeding
-    download_nltk_data()
-
-    # Generate words using the main function
-    generation_result = generate_new_words(args.keywords, args.num)
-    regular_words_list = generation_result.get('regular_words', [])
-    wildcard = generation_result.get('wildcard_word')
-
-    # Print results
-    print("\n--- Generated Words ---")
-    if regular_words_list:
-        for i, word in enumerate(regular_words_list):
-            print(f"{i+1}. {word}")
-    elif not wildcard: # Only print this if there are no regular words AND no wildcard
-        print("(No regular words generated for the given keywords)")
-    
-    if wildcard:
-        print(f"\nWildcard: {wildcard}")
-    elif not regular_words_list: # If both are empty/None
-        print("(No words generated at all)")
-
-
-    # Old example code removed
-
-    # Example usage (will be replaced by argparse)
-    # download_nltk_data() # Ensure WordNet is ready
-
-    # keywords_main = ["computer", "network", "fast"]
-    # generated = generate_new_words(keywords_main, 15)
-    # print("\n--- Generated Words ---:")
-    # if generated:
-    #     for i, word in enumerate(generated):
-    #         print(f"{i+1}. {word}")
-    # else:
-    #     print("(No words generated)")
-
-    # Old examples (commented out or removed if argparse is added)
-    # test_keywords = ["fast", "message", "digital"]
-    # print(f"Keywords: {test_keywords}")
-    # related = get_related_words(test_keywords)
-    # print(f"\nFound {len(related)} related words (sample):\n{related[:10]}")
-    # ... rest of old examples ... 
+    if args.num < 1:
+        print("Number of words to generate must be at least 1.")
+    else:
+        # Ensure NLTK data is ready before first generation call via CLI
+        download_nltk_data() 
+        
+        print(f"\nGenerating {args.num} word(s) based on: {args.keywords}\n")
+        output = generate_new_words(args.keywords, args.num)
+        
+        if output["regular_words"]:
+            print("Generated Words:")
+            for i, word in enumerate(output["regular_words"]):
+                print(f"  {i+1}. {word}")
+        
+        if output["wildcard_word"]:
+            print(f"\nWildcard: {output["wildcard_word"]}")
+        
+        if not output["regular_words"] and not output["wildcard_word"]:
+            print("No words could be generated with the given inputs and settings.")
+```
